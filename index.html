@@ -149,12 +149,105 @@
   }
   .card.wrong{animation:shake .3s;}
   .card.right{animation:pop .3s;}
+
+  /* 시작/결과 화면 */
+  .screen{
+    width:100%;
+    max-width:420px;
+    background:var(--panel);
+    border:3px solid var(--ink);
+    border-radius:22px;
+    box-shadow:0 8px 0 rgba(31,33,64,.16);
+    padding:30px 22px;
+    text-align:center;
+  }
+  .screen h2{font-size:28px;margin:4px 0 10px;}
+  .screen p{color:#6b7196;font-size:15px;line-height:1.6;margin:0 0 20px;}
+  .big-btn{
+    font-size:24px;
+    padding:18px 0;
+    width:100%;
+    background:var(--sun);
+  }
+  .result-row{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    background:#f4f6ff;
+    border:3px solid var(--ink);
+    border-radius:14px;
+    padding:14px 18px;
+    margin-bottom:12px;
+    font-size:20px;
+    font-weight:800;
+  }
+  .result-row .num{color:var(--sky-deep);font-size:26px;}
+
+  .endbtn{
+    width:100%;
+    max-width:420px;
+    margin-top:12px;
+    background:#ffd0d0;
+    font-size:18px;
+    padding:14px 0;
+  }
+  .hidden{display:none;}
+
+  /* 난이도 선택 */
+  .diff-label{font-size:15px;font-weight:800;color:#5a5470;margin:0 0 10px;}
+  .diff-group{
+    display:flex;
+    gap:8px;
+    margin-bottom:18px;
+  }
+  .diff-btn{
+    flex:1;
+    font-size:16px;
+    padding:14px 4px;
+    background:#fff;
+    line-height:1.2;
+  }
+  .diff-btn small{display:block;font-size:11px;color:#8b91b0;font-weight:700;margin-top:3px;}
+  .diff-btn.sel{background:var(--sky);color:#fff;}
+  .diff-btn.sel small{color:#e3ebff;}
+
+  /* 문제별 제한시간 막대 */
+  #timeBarWrap{
+    height:14px;
+    background:#eef0fa;
+    border:2px solid var(--ink);
+    border-radius:10px;
+    margin:0 auto 10px;
+    width:82%;
+    overflow:hidden;
+  }
+  #timeBar{
+    height:100%;
+    width:100%;
+    background:var(--good);
+    border-radius:8px;
+  }
 </style>
 </head>
 <body>
   <h1>구구단을 <span class="x">외자!</span></h1>
   <p class="subtitle">문제를 풀고 콤보를 쌓아 높은 점수에 도전해요 ✨</p>
 
+  <!-- 시작 화면 -->
+  <div class="screen" id="startScreen">
+    <h2>🎯 준비됐나요?</h2>
+    <p>시작 버튼을 누르면 문제가 나와요.<br>맞힐수록 점수가 오르고, 연속으로 맞히면<br>콤보 보너스를 받아요!</p>
+    <div class="diff-label">난이도를 골라요</div>
+    <div class="diff-group">
+      <button class="diff-btn sel" data-diff="easy">쉬움<small>시간 제한 없음</small></button>
+      <button class="diff-btn" data-diff="normal">보통<small>문제당 4초</small></button>
+      <button class="diff-btn" data-diff="hard">어려움<small>문제당 2.5초</small></button>
+    </div>
+    <button class="big-btn" id="startBtn">▶️ 게임 시작</button>
+  </div>
+
+  <!-- 게임 화면 -->
+  <div id="gameScreen" class="hidden">
   <div class="scorebar">
     <div class="stat">
       <div class="label">점수</div>
@@ -164,10 +257,15 @@
       <div class="label">콤보</div>
       <div class="value" id="combo">0</div>
     </div>
+    <div class="stat">
+      <div class="label">시간</div>
+      <div class="value" id="timer">0</div>
+    </div>
   </div>
 
   <div class="card" id="card">
     <div id="comboPop"></div>
+    <div id="timeBarWrap" class="hidden"><div id="timeBar"></div></div>
     <div class="question" id="question">7 <span class="x">×</span> 8 = ?</div>
     <div id="answerBox"></div>
     <div id="message">숫자를 눌러 답을 써 보세요!</div>
@@ -189,13 +287,35 @@
     </div>
   </div>
 
+  <button class="endbtn" id="endBtn">⏹️ 게임 종료</button>
+  </div><!-- /gameScreen -->
+
+  <!-- 결과 화면 -->
+  <div class="screen hidden" id="resultScreen">
+    <h2>🏁 수고했어요!</h2>
+    <div class="result-row"><span>맞힌 점수</span><span class="num" id="finalScore">0</span></div>
+    <div class="result-row"><span>맞힌 개수</span><span class="num" id="finalCorrect">0</span></div>
+    <div class="result-row"><span>걸린 시간</span><span class="num" id="finalTime">0초</span></div>
+    <button class="big-btn" id="againBtn">🔄 다시 하기</button>
+  </div>
+
 <script>
 (function(){
   let a=2, b=2, answer=4;
-  let score=0, combo=0;
+  let score=0, combo=0, correctCount=0;
   let current="";
   let locked=false;
+  let startTime=0, timerId=null;
+  let difficulty="easy", qLimit=0;      // qLimit: 문제당 제한(초), 0이면 무제한
+  let qTimerId=null, qDeadline=0;
 
+  const timeBarWrap = document.getElementById("timeBarWrap");
+  const timeBar = document.getElementById("timeBar");
+
+  const startScreen = document.getElementById("startScreen");
+  const gameScreen = document.getElementById("gameScreen");
+  const resultScreen = document.getElementById("resultScreen");
+  const timerEl = document.getElementById("timer");
   const qEl = document.getElementById("question");
   const ansEl = document.getElementById("answerBox");
   const msgEl = document.getElementById("message");
@@ -226,6 +346,16 @@
   const goodSound=()=>beep([523,659,784],0.12);
   const badSound =()=>beep([220,175],0.18);
 
+  /* ---- 난이도 선택 ---- */
+  const LIMITS = { easy:0, normal:4, hard:2.5 };
+  document.querySelectorAll(".diff-btn").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      document.querySelectorAll(".diff-btn").forEach(x=>x.classList.remove("sel"));
+      btn.classList.add("sel");
+      difficulty = btn.dataset.diff;
+    });
+  });
+
   function newQuestion(){
     a = 2 + Math.floor(Math.random()*8); // 2~9단
     b = 2 + Math.floor(Math.random()*8); // 2~9
@@ -233,6 +363,32 @@
     qEl.innerHTML = a+' <span class="x">×</span> '+b+' = ?';
     current="";
     ansEl.textContent="";
+    startQuestionTimer();
+  }
+
+  /* ---- 문제별 제한시간 ---- */
+  function stopQuestionTimer(){
+    if(qTimerId){ cancelAnimationFrame(qTimerId); qTimerId=null; }
+  }
+  function startQuestionTimer(){
+    stopQuestionTimer();
+    if(qLimit<=0){ timeBarWrap.classList.add("hidden"); return; }
+    timeBarWrap.classList.remove("hidden");
+    qDeadline = Date.now() + qLimit*1000;
+    tickQuestion();
+  }
+  function tickQuestion(){
+    const remain = qDeadline - Date.now();
+    const ratio = Math.max(0, remain/(qLimit*1000));
+    timeBar.style.width = (ratio*100)+"%";
+    timeBar.style.background = ratio>0.5 ? "#2ecc71" : ratio>0.25 ? "#ffcf3f" : "#ff6b6b";
+    if(remain<=0){ timeUp(); return; }
+    qTimerId = requestAnimationFrame(tickQuestion);
+  }
+  function timeUp(){
+    if(locked) return;
+    stopQuestionTimer();
+    handleWrong("시간 초과! ⏰ 정답은 "+answer+"이에요.");
   }
 
   function render(){ ansEl.textContent = current; }
@@ -253,12 +409,33 @@
 
   document.getElementById("okBtn").addEventListener("click",submit);
 
+  /* ---- 실제 키보드 입력 ---- */
+  document.addEventListener("keydown",e=>{
+    // 시작/결과 화면에서 엔터로 시작
+    if(e.key==="Enter" && !startScreen.classList.contains("hidden")){ startGame(); return; }
+    if(e.key==="Enter" && !resultScreen.classList.contains("hidden")){ startGame(); return; }
+    // 게임 화면일 때만 반응
+    if(gameScreen.classList.contains("hidden")) return;
+    if(locked) return;
+    if(e.key>="0" && e.key<="9"){
+      if(current.length<2){ current+=e.key; render(); }
+    }else if(e.key==="Backspace"){
+      e.preventDefault();
+      current=current.slice(0,-1); render();
+    }else if(e.key==="Enter"){
+      e.preventDefault();
+      submit();
+    }
+  });
+
   function submit(){
     if(locked || current==="") return;
+    stopQuestionTimer();
     locked=true;
     const val = parseInt(current,10);
     if(val===answer){
       combo++;
+      correctCount++;
       const gained = 10 + (combo-1)*5;
       score += gained;
       scoreEl.textContent = score;
@@ -272,15 +449,25 @@
         comboPop.style.animation="pop .3s";
         setTimeout(()=>comboPop.style.animation="",300);
       }
+      nextAfterDelay();
     }else{
-      combo=0;
-      comboEl.textContent=0;
-      comboPop.textContent="";
-      msgEl.textContent = BAD[Math.floor(Math.random()*BAD.length)]+" 정답은 "+answer+"이에요.";
-      msgEl.className="bad";
-      card.classList.add("wrong");
-      badSound();
+      handleWrong(BAD[Math.floor(Math.random()*BAD.length)]+" 정답은 "+answer+"이에요.");
     }
+  }
+
+  function handleWrong(text){
+    locked=true;
+    combo=0;
+    comboEl.textContent=0;
+    comboPop.textContent="";
+    msgEl.textContent = text;
+    msgEl.className="bad";
+    card.classList.add("wrong");
+    badSound();
+    nextAfterDelay();
+  }
+
+  function nextAfterDelay(){
     setTimeout(()=>{
       card.classList.remove("right","wrong");
       msgEl.className="";
@@ -289,6 +476,40 @@
       locked=false;
     },1400);
   }
+
+  /* ---- 시작 / 종료 / 타이머 ---- */
+  function startGame(){
+    score=0; combo=0; correctCount=0; current=""; locked=false;
+    qLimit = LIMITS[difficulty];
+    scoreEl.textContent=0; comboEl.textContent=0; comboPop.textContent="";
+    msgEl.className=""; msgEl.textContent="숫자를 눌러 답을 써 보세요!";
+    startScreen.classList.add("hidden");
+    resultScreen.classList.add("hidden");
+    gameScreen.classList.remove("hidden");
+    newQuestion();
+    // 타이머
+    startTime = Date.now();
+    timerEl.textContent = 0;
+    if(timerId) clearInterval(timerId);
+    timerId = setInterval(()=>{
+      timerEl.textContent = Math.floor((Date.now()-startTime)/1000);
+    },500);
+  }
+
+  function endGame(){
+    if(timerId){ clearInterval(timerId); timerId=null; }
+    stopQuestionTimer();
+    const secs = Math.floor((Date.now()-startTime)/1000);
+    document.getElementById("finalScore").textContent = score;
+    document.getElementById("finalCorrect").textContent = correctCount+"개";
+    document.getElementById("finalTime").textContent = secs+"초";
+    gameScreen.classList.add("hidden");
+    resultScreen.classList.remove("hidden");
+  }
+
+  document.getElementById("startBtn").addEventListener("click",startGame);
+  document.getElementById("againBtn").addEventListener("click",startGame);
+  document.getElementById("endBtn").addEventListener("click",endGame);
 
   newQuestion();
 })();
