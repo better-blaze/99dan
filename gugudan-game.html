@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>구구단을 외자!</title>
+<style>
+  :root{
+    --ink:#1f2140;
+    --sky:#4f7cff;
+    --sky-deep:#2f5be0;
+    --sun:#ffcf3f;
+    --good:#2ecc71;
+    --bad:#ff6b6b;
+    --panel:#ffffff;
+  }
+  *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:"Segoe UI","Apple SD Gothic Neo","Malgun Gothic",sans-serif;
+    background:
+      radial-gradient(circle at 15% 10%, #ffe58a 0, transparent 38%),
+      radial-gradient(circle at 85% 12%, #b8d0ff 0, transparent 40%),
+      linear-gradient(160deg,#eaf1ff,#f6f9ff);
+    color:var(--ink);
+    min-height:100vh;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    padding:16px 14px 40px;
+  }
+  h1{
+    font-size:clamp(26px,6vw,40px);
+    margin:8px 0 4px;
+    letter-spacing:-.5px;
+    text-align:center;
+  }
+  h1 .x{color:var(--sky-deep);}
+  .subtitle{color:#7b83a6;margin:0 0 16px;font-size:14px;}
+
+  .scorebar{
+    display:flex;
+    gap:12px;
+    width:100%;
+    max-width:420px;
+    margin-bottom:14px;
+  }
+  .stat{
+    flex:1;
+    background:var(--panel);
+    border:3px solid var(--ink);
+    border-radius:16px;
+    padding:10px 6px;
+    text-align:center;
+    box-shadow:0 5px 0 rgba(31,33,64,.14);
+  }
+  .stat .label{font-size:13px;color:#8b91b0;font-weight:700;}
+  .stat .value{font-size:30px;font-weight:800;line-height:1.1;}
+  .stat.combo .value{color:var(--sky-deep);}
+
+  .card{
+    width:100%;
+    max-width:420px;
+    background:var(--panel);
+    border:3px solid var(--ink);
+    border-radius:22px;
+    box-shadow:0 8px 0 rgba(31,33,64,.16);
+    padding:22px 18px;
+    text-align:center;
+  }
+  .question{
+    font-size:clamp(40px,11vw,60px);
+    font-weight:800;
+    margin:6px 0 4px;
+    letter-spacing:1px;
+  }
+  .question .x{color:var(--sky);}
+  #answerBox{
+    font-size:44px;
+    font-weight:800;
+    min-height:60px;
+    margin:8px auto 4px;
+    padding:6px 10px;
+    width:82%;
+    border:3px dashed #c6ccec;
+    border-radius:14px;
+    color:var(--sky-deep);
+    letter-spacing:4px;
+  }
+  #message{
+    font-size:20px;
+    font-weight:800;
+    min-height:30px;
+    margin:8px 0 2px;
+    transition:transform .15s;
+  }
+  #message.good{color:var(--good);}
+  #message.bad{color:var(--bad);}
+  #comboPop{
+    height:24px;
+    font-size:18px;
+    font-weight:800;
+    color:var(--sun);
+    text-shadow:0 1px 0 rgba(0,0,0,.15);
+  }
+
+  .keypad{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:10px;
+    margin-top:14px;
+  }
+  button{
+    font-family:inherit;
+    font-weight:800;
+    border:3px solid var(--ink);
+    border-radius:16px;
+    cursor:pointer;
+    box-shadow:0 5px 0 rgba(31,33,64,.2);
+    transition:transform .05s, box-shadow .05s;
+    user-select:none;
+  }
+  button:active{transform:translateY(4px);box-shadow:0 1px 0 rgba(31,33,64,.2);}
+  .key{
+    font-size:28px;
+    padding:16px 0;
+    background:#fff;
+  }
+  .key.wide{grid-column:span 1;}
+  .key.del{background:#ffe0a3;font-size:20px;}
+  .key.ok{
+    grid-column:span 3;
+    background:var(--good);
+    color:#fff;
+    font-size:24px;
+    padding:16px 0;
+    margin-top:2px;
+  }
+
+  @keyframes shake{
+    0%,100%{transform:translateX(0);}
+    25%{transform:translateX(-8px);}
+    75%{transform:translateX(8px);}
+  }
+  @keyframes pop{
+    0%{transform:scale(.6);}
+    60%{transform:scale(1.15);}
+    100%{transform:scale(1);}
+  }
+  .card.wrong{animation:shake .3s;}
+  .card.right{animation:pop .3s;}
+</style>
+</head>
+<body>
+  <h1>구구단을 <span class="x">외자!</span></h1>
+  <p class="subtitle">문제를 풀고 콤보를 쌓아 높은 점수에 도전해요 ✨</p>
+
+  <div class="scorebar">
+    <div class="stat">
+      <div class="label">점수</div>
+      <div class="value" id="score">0</div>
+    </div>
+    <div class="stat combo">
+      <div class="label">콤보</div>
+      <div class="value" id="combo">0</div>
+    </div>
+  </div>
+
+  <div class="card" id="card">
+    <div id="comboPop"></div>
+    <div class="question" id="question">7 <span class="x">×</span> 8 = ?</div>
+    <div id="answerBox"></div>
+    <div id="message">숫자를 눌러 답을 써 보세요!</div>
+
+    <div class="keypad">
+      <button class="key" data-n="1">1</button>
+      <button class="key" data-n="2">2</button>
+      <button class="key" data-n="3">3</button>
+      <button class="key" data-n="4">4</button>
+      <button class="key" data-n="5">5</button>
+      <button class="key" data-n="6">6</button>
+      <button class="key" data-n="7">7</button>
+      <button class="key" data-n="8">8</button>
+      <button class="key" data-n="9">9</button>
+      <button class="key del" id="delBtn">⌫ 지우기</button>
+      <button class="key" data-n="0">0</button>
+      <button class="key del" id="delBtn2" style="visibility:hidden">·</button>
+      <button class="key ok" id="okBtn">확인</button>
+    </div>
+  </div>
+
+<script>
+(function(){
+  let a=2, b=2, answer=4;
+  let score=0, combo=0;
+  let current="";
+  let locked=false;
+
+  const qEl = document.getElementById("question");
+  const ansEl = document.getElementById("answerBox");
+  const msgEl = document.getElementById("message");
+  const scoreEl = document.getElementById("score");
+  const comboEl = document.getElementById("combo");
+  const comboPop = document.getElementById("comboPop");
+  const card = document.getElementById("card");
+
+  const GOOD = ["정답이에요! 🎉","잘했어요! 👍","최고예요! 🌟","멋져요! 😃","척척박사! 🧠"];
+  const BAD  = ["아쉬워요! 다시 도전! 💪","괜찮아요, 힘내요!","조금만 더! 😊","다음엔 맞힐 수 있어요!"];
+
+  /* ---- 소리 ---- */
+  let ac=null;
+  function ctx(){ if(!ac) ac=new (window.AudioContext||window.webkitAudioContext)(); return ac; }
+  function beep(freqs, dur=0.15){
+    const c=ctx(); let t=c.currentTime;
+    freqs.forEach(f=>{
+      const o=c.createOscillator(), g=c.createGain();
+      o.type="square"; o.frequency.value=f;
+      g.gain.setValueAtTime(0.0001,t);
+      g.gain.exponentialRampToValueAtTime(0.2,t+0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+      o.connect(g).connect(c.destination);
+      o.start(t); o.stop(t+dur+0.02);
+      t+=dur;
+    });
+  }
+  const goodSound=()=>beep([523,659,784],0.12);
+  const badSound =()=>beep([220,175],0.18);
+
+  function newQuestion(){
+    a = 2 + Math.floor(Math.random()*8); // 2~9단
+    b = 2 + Math.floor(Math.random()*8); // 2~9
+    answer = a*b;
+    qEl.innerHTML = a+' <span class="x">×</span> '+b+' = ?';
+    current="";
+    ansEl.textContent="";
+  }
+
+  function render(){ ansEl.textContent = current; }
+
+  document.querySelectorAll(".key[data-n]").forEach(btn=>{
+    btn.addEventListener("click",()=>{
+      if(locked) return;
+      if(current.length>=2) return;
+      current += btn.dataset.n;
+      render();
+    });
+  });
+  document.getElementById("delBtn").addEventListener("click",()=>{
+    if(locked) return;
+    current = current.slice(0,-1);
+    render();
+  });
+
+  document.getElementById("okBtn").addEventListener("click",submit);
+
+  function submit(){
+    if(locked || current==="") return;
+    locked=true;
+    const val = parseInt(current,10);
+    if(val===answer){
+      combo++;
+      const gained = 10 + (combo-1)*5;
+      score += gained;
+      scoreEl.textContent = score;
+      comboEl.textContent = combo;
+      msgEl.textContent = GOOD[Math.floor(Math.random()*GOOD.length)]+" (+"+gained+"점)";
+      msgEl.className="good";
+      card.classList.add("right");
+      goodSound();
+      if(combo>=2){
+        comboPop.textContent = combo+"콤보! 🔥";
+        comboPop.style.animation="pop .3s";
+        setTimeout(()=>comboPop.style.animation="",300);
+      }
+    }else{
+      combo=0;
+      comboEl.textContent=0;
+      comboPop.textContent="";
+      msgEl.textContent = BAD[Math.floor(Math.random()*BAD.length)]+" 정답은 "+answer+"이에요.";
+      msgEl.className="bad";
+      card.classList.add("wrong");
+      badSound();
+    }
+    setTimeout(()=>{
+      card.classList.remove("right","wrong");
+      msgEl.className="";
+      msgEl.textContent="숫자를 눌러 답을 써 보세요!";
+      newQuestion();
+      locked=false;
+    },1400);
+  }
+
+  newQuestion();
+})();
+</script>
+</body>
+</html>
