@@ -210,6 +210,9 @@
   .diff-btn small{display:block;font-size:11px;color:#8b91b0;font-weight:700;margin-top:3px;}
   .diff-btn.sel{background:var(--sky);color:#fff;}
   .diff-btn.sel small{color:#e3ebff;}
+  .diff-btn.challenge{background:#fff2d9;}
+  .diff-btn.challenge.sel{background:#ff8c42;color:#fff;}
+  .diff-btn.challenge.sel small{color:#ffe6cf;}
 
   /* 문제별 제한시간 막대 */
   #timeBarWrap{
@@ -242,6 +245,9 @@
       <button class="diff-btn sel" data-diff="easy">쉬움<small>시간 제한 없음</small></button>
       <button class="diff-btn" data-diff="normal">보통<small>문제당 4초</small></button>
       <button class="diff-btn" data-diff="hard">어려움<small>문제당 2.5초</small></button>
+    </div>
+    <div class="diff-group">
+      <button class="diff-btn challenge" data-diff="challenge">🔥 도전<small>점점 빨라짐 · 틀리면 끝!</small></button>
     </div>
     <button class="big-btn" id="startBtn">▶️ 게임 시작</button>
   </div>
@@ -308,6 +314,7 @@
   let startTime=0, timerId=null;
   let difficulty="easy", qLimit=0;      // qLimit: 문제당 제한(초), 0이면 무제한
   let qTimerId=null, qDeadline=0;
+  let challengeMode=false;              // 도전 모드 여부
 
   const timeBarWrap = document.getElementById("timeBarWrap");
   const timeBar = document.getElementById("timeBar");
@@ -347,7 +354,7 @@
   const badSound =()=>beep([220,175],0.18);
 
   /* ---- 난이도 선택 ---- */
-  const LIMITS = { easy:0, normal:4, hard:2.5 };
+  const LIMITS = { easy:0, normal:4, hard:2.5, challenge:2.5 };
   document.querySelectorAll(".diff-btn").forEach(btn=>{
     btn.addEventListener("click",()=>{
       document.querySelectorAll(".diff-btn").forEach(x=>x.classList.remove("sel"));
@@ -365,7 +372,6 @@
     ansEl.textContent="";
     startQuestionTimer();
   }
-
   /* ---- 문제별 제한시간 ---- */
   function stopQuestionTimer(){
     if(qTimerId){ cancelAnimationFrame(qTimerId); qTimerId=null; }
@@ -449,6 +455,10 @@
         comboPop.style.animation="pop .3s";
         setTimeout(()=>comboPop.style.animation="",300);
       }
+      // 도전 모드: 다음 문제마다 0.1초씩 단축 (최소 0.6초)
+      if(challengeMode){
+        qLimit = Math.max(0.6, Math.round((qLimit-0.1)*10)/10);
+      }
       nextAfterDelay();
     }else{
       handleWrong(BAD[Math.floor(Math.random()*BAD.length)]+" 정답은 "+answer+"이에요.");
@@ -464,7 +474,12 @@
     msgEl.className="bad";
     card.classList.add("wrong");
     badSound();
-    nextAfterDelay();
+    if(challengeMode){
+      // 도전 모드는 틀리면 바로 종료
+      setTimeout(()=>{ card.classList.remove("wrong"); endGame(); },1400);
+    }else{
+      nextAfterDelay();
+    }
   }
 
   function nextAfterDelay(){
@@ -481,6 +496,7 @@
   function startGame(){
     score=0; combo=0; correctCount=0; current=""; locked=false;
     qLimit = LIMITS[difficulty];
+    challengeMode = (difficulty==="challenge");
     scoreEl.textContent=0; comboEl.textContent=0; comboPop.textContent="";
     msgEl.className=""; msgEl.textContent="숫자를 눌러 답을 써 보세요!";
     startScreen.classList.add("hidden");
